@@ -1,4 +1,5 @@
 import re
+import uuid
 from enum import Enum
 from typing import (
     Any,
@@ -237,7 +238,8 @@ class SqlalchemySelector(Generic[TableModelT]):
 
 
 class SqlalchemyCrud(
-    BaseCrud[SchemaModelT, SchemaListT, SchemaFilterT, SchemaCreateT, SchemaReadT, SchemaUpdateT], SqlalchemySelector[TableModelT]
+    BaseCrud[SchemaModelT, SchemaListT, SchemaFilterT, SchemaCreateT, SchemaReadT, SchemaUpdateT],
+    SqlalchemySelector[TableModelT]
 ):
     engine: SqlalchemyDatabase = None  # sqlalchemy engine
     create_fields: List[SqlaInsAttr] = []  # Create item data field
@@ -330,9 +332,10 @@ class SqlalchemyCrud(
         # Set the update fields to the model insfields if not provided
         self.update_fields = self.update_fields or self.model_insfields
         # Exclude certain fields if specified
-        exclude = {k for k, v in ValueItems.merge(self.update_exclude, {}).items() if not isinstance(v, (dict, list, set))} or {
-            self.pk_name
-        }
+        exclude = {k for k, v in ValueItems.merge(self.update_exclude, {}).items() if
+                   not isinstance(v, (dict, list, set))} or {
+                      self.pk_name
+                  }
         # Filter out any non-model fields from the update fields
         modelfields = self.parser.filter_modelfield(self.update_fields, exclude=exclude)
         # Create the schema using the model fields
@@ -346,9 +349,10 @@ class SqlalchemyCrud(
         # Set the create fields to the model insfields if not provided
         self.create_fields = self.create_fields or self.model_insfields
         # Exclude certain fields if specified
-        exclude = {k for k, v in ValueItems.merge(self.create_exclude, {}).items() if not isinstance(v, (dict, list, set))} or {
-            self.pk_name
-        }
+        exclude = {k for k, v in ValueItems.merge(self.create_exclude, {}).items() if
+                   not isinstance(v, (dict, list, set))} or {
+                      self.pk_name
+                  }
         # Filter out any non-model fields from the create fields
         modelfields = self.parser.filter_modelfield(self.create_fields, exclude=exclude)
         # Create the schema using the model fields
@@ -444,7 +448,8 @@ class SqlalchemyCrud(
         **kwargs,
     ) -> Dict[str, Any]:
         data = obj.dict(exclude=self.update_exclude, exclude_unset=True, by_alias=True)
-        data = {key: val for key, val in data.items() if val is not None or field_allow_none(model_fields(self.model)[key])}
+        data = {key: val for key, val in data.items() if
+                val is not None or field_allow_none(model_fields(self.model)[key])}
         return data
 
     async def on_filter_pre(self, request: Request, obj: Optional[SchemaFilterT], **kwargs) -> Dict[str, Any]:
@@ -572,6 +577,10 @@ class SqlalchemyCrud(
             request: Request,
             item_id: self.AnnotatedItemIdList,  # type: ignore
         ):
+            item_id = [
+                str(id) if isinstance(id, uuid.UUID) else id for id in item_id
+            ]
+
             if not await self.has_delete_permission(request, item_id):
                 return self.error_no_router_permission(request)
             items = await self.db.async_run_sync(self._delete_items, item_id)
