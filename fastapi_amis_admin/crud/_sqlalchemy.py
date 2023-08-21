@@ -393,7 +393,9 @@ class SqlalchemyCrud(
         return self.schema_list.parse_obj(values)
 
     def _fetch_item_scalars(self, session: Session, item_id: Iterable[str]) -> List[TableModelT]:
-        sel = select(self.model).where(self.pk.in_(list(map(get_python_type_parse(self.pk), item_id))))
+        formatted_item_ids = [str(id_val).replace('urn:', '').replace('uuid:', '') for id_val in item_id]
+        parsed_ids = list(map(get_python_type_parse(self.pk), formatted_item_ids))
+        sel = select(self.model).where(self.pk.in_(parsed_ids))
         return session.scalars(sel).all()
 
     async def fetch_items(self, *item_id: str) -> List[TableModelT]:
@@ -560,6 +562,10 @@ class SqlalchemyCrud(
             item_id: self.AnnotatedItemIdList,  # type: ignore
             data: Annotated[self.schema_update, Body()],  # type: ignore
         ):
+            item_id = [
+                str(id) if isinstance(id, uuid.UUID) else id for id in item_id
+            ]
+
             if not await self.has_update_permission(request, item_id, data):
                 return self.error_no_router_permission(request)
             item_id = list(map(get_python_type_parse(self.pk), item_id))
